@@ -1,0 +1,5 @@
+{
+  "name": "职教百问",
+  "description": "一个能够根据问答内容实时生成并展示知识图谱的智能助手。",
+  "requestFramePermissions": ["microphone"]
+}
