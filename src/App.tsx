@@ -30,6 +30,66 @@ declare global {
   }
 }
 
+const DOMAINS = [
+  "现代通信技术",
+  "智能制造",
+  "机械制造及自动化",
+  "智能焊接技术",
+  "汽车制造与试验技术",
+  "信息安全技术应用",
+  "园林技术",
+  "食品智能加工技术",
+  "公共艺术设计"
+];
+
+const DOMAIN_QUESTIONS: Record<string, string[]> = {
+  "现代通信技术": [
+    "《5G基站建设与维护》课程覆盖了通信网络优化工程师岗位的哪些技能要求？",
+    "《5G基站建设与维护》课程对应哪些国家职业技能标准及技能模块？",
+    "6G技术相比5G有哪些核心突破点？"
+  ],
+  "智能制造": [
+    "工业4.0背景下，智能工厂的核心架构包含哪些层级？",
+    "工业机器人在自动化生产线中的路径规划算法有哪些？",
+    "数字化孪生技术如何提升制造企业的生产效率？"
+  ],
+  "机械制造及自动化": [
+    "现代数控加工中心（CNC）的五轴联动技术有哪些优势？",
+    "机械设计中，如何平衡零件的强度与轻量化需求？",
+    "自动化生产线中的传感器选型标准是什么？"
+  ],
+  "智能焊接技术": [
+    "激光焊接与传统电弧焊在汽车制造中的应用差异？",
+    "焊接机器人的视觉识别系统如何实现焊缝自动跟踪？",
+    "智能焊接云平台如何实现焊接质量的远程监控？"
+  ],
+  "汽车制造与试验技术": [
+    "新能源汽车电池管理系统（BMS）的关键技术指标有哪些？",
+    "自动驾驶L3级别对车载传感器融合方案的要求是什么？",
+    "汽车碰撞试验中，如何通过仿真模拟优化车身结构？"
+  ],
+  "信息安全技术应用": [
+    "零信任架构（Zero Trust）在企业内网安全中的实施步骤？",
+    "等级保护2.0标准对云计算平台有哪些特定的安全要求？",
+    "常见的勒索病毒防御策略及应急响应流程？"
+  ],
+  "园林技术": [
+    "海绵城市建设中，园林景观如何实现雨水的收集与再利用？",
+    "现代智慧园林系统如何利用物联网技术进行植物养护？",
+    "岭南园林与江南园林在造园艺术风格上的主要区别？"
+  ],
+  "食品智能加工技术": [
+    "食品冷链物流中，智能温控系统如何确保食品安全？",
+    "超高压灭菌技术（HPP）在果汁加工中的应用优势？",
+    "食品包装自动化生产线中的视觉检测剔除系统原理？"
+  ],
+  "公共艺术设计": [
+    "城市公共艺术装置如何与周围建筑环境实现和谐共生？",
+    "沉浸式新媒体艺术在商业空间设计中的应用案例？",
+    "社区微更新项目中，公共艺术如何提升居民的归属感？"
+  ]
+};
+
 export default function App() {
   const [sessions, setSessions] = useState<HistorySession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
@@ -43,6 +103,9 @@ export default function App() {
   const [expandedThinking, setExpandedThinking] = useState<Record<number, boolean>>({});
   const [isGraphFullScreen, setIsGraphFullScreen] = useState(false);
   const [selectedNode, setSelectedNode] = useState<KGNode | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [selectedDomain, setSelectedDomain] = useState(DOMAINS[0]);
+  const [isDomainDropdownOpen, setIsDomainDropdownOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
@@ -285,7 +348,7 @@ export default function App() {
         prompt += `\n\n(用户上传了 ${currentAttachments.length} 个附件，请在回答中提及您已收到并根据这些内容进行回答。)`;
       }
 
-      const response: ChatResponse = await askQuestion(prompt, history as any, contextGraph || undefined);
+      const response: ChatResponse = await askQuestion(prompt, history as any, contextGraph || undefined, selectedDomain);
       
       // Calculate new windowed graph (last 5 turns including this one)
       let newWindowedGraph: GraphData | null = contextGraph;
@@ -422,26 +485,71 @@ export default function App() {
       {/* Main Content */}
       <div className="flex flex-col flex-1 bg-white relative overflow-hidden">
         {/* Top Header */}
-        <header className="px-8 py-6 flex items-center gap-4">
-          <div className="flex items-center gap-2 px-4 py-2 bg-[#F7F7F7] rounded-full border border-[#E5E5E5] cursor-pointer hover:bg-slate-100 transition-colors">
-            <span className="text-sm font-medium">现代通信技术</span>
-            <ChevronRight className="w-4 h-4 rotate-90 text-slate-400" />
+        <header className="px-8 py-6 flex items-center gap-4 relative z-40">
+          <div className="relative">
+            <button 
+              onClick={() => setIsDomainDropdownOpen(!isDomainDropdownOpen)}
+              className="flex items-center gap-3 px-6 py-2.5 bg-white rounded-full border border-[#E5E5E5] hover:bg-slate-50 transition-all shadow-sm group"
+            >
+              <span className="text-base font-medium text-slate-700">{selectedDomain}</span>
+              <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${isDomainDropdownOpen ? 'rotate-[-90deg]' : 'rotate-90'}`} />
+            </button>
+
+            <AnimatePresence>
+              {isDomainDropdownOpen && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-10" 
+                    onClick={() => setIsDomainDropdownOpen(false)} 
+                  />
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    className="absolute top-full left-0 mt-3 w-72 bg-white rounded-[24px] border border-slate-100 shadow-[0_20px_50px_rgba(0,0,0,0.1)] py-3 z-20 overflow-hidden"
+                  >
+                    <div className="px-5 py-2 mb-1">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">选择专业领域</span>
+                    </div>
+                    {DOMAINS.map((domain) => (
+                      <button
+                        key={domain}
+                        onClick={() => {
+                          setSelectedDomain(domain);
+                          setIsDomainDropdownOpen(false);
+                        }}
+                        className={`w-full text-left px-6 py-3.5 text-[15px] transition-all flex items-center justify-between group ${
+                          selectedDomain === domain 
+                            ? 'bg-blue-50/50 text-blue-600 font-bold' 
+                            : 'text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span className="group-hover:translate-x-1 transition-transform">{domain}</span>
+                        {selectedDomain === domain && (
+                          <motion.div 
+                            layoutId="active-dot"
+                            className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" 
+                          />
+                        )}
+                      </button>
+                    ))}
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
           </div>
         </header>
 
         <div className="flex-1 overflow-y-auto px-8 pb-48 custom-scrollbar">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center mt-20 space-y-8">
-              <h2 className="text-3xl font-bold text-slate-800">现代通信技术</h2>
+              <h2 className="text-3xl font-bold text-slate-800">{selectedDomain}</h2>
               <div className="w-full max-w-2xl space-y-4">
                 <div className="bg-[#F7F7F7] p-6 rounded-3xl rounded-tl-none inline-block max-w-[80%]">
                   <p className="text-slate-700">你好呀，我是职教百问，你想了解什么呢？</p>
                 </div>
                 <div className="space-y-3">
-                  {[
-                    "《5G基站建设与维护》课程覆盖了通信网络优化工程师岗位的哪些技能要求？",
-                    "《5G基站建设与维护》课程对应哪些国家职业技能标准及技能模块？"
-                  ].map((q, i) => (
+                  {(DOMAIN_QUESTIONS[selectedDomain] || []).slice(0, 3).map((q, i) => (
                     <button 
                       key={i}
                       onClick={() => { setInput(q); }}
@@ -471,7 +579,13 @@ export default function App() {
                       {message.attachments && message.attachments.length > 0 && (
                         <div className="flex flex-wrap gap-2 mb-3">
                           {message.attachments.map((url, i) => (
-                            <img key={i} src={url} alt="attachment" className="w-20 h-20 object-cover rounded-lg border border-white/20" />
+                            <img 
+                              key={i} 
+                              src={url} 
+                              alt="attachment" 
+                              className="w-20 h-20 object-cover rounded-lg border border-white/20 cursor-zoom-in hover:opacity-90 transition-opacity" 
+                              onClick={() => setPreviewImage(url)}
+                            />
                           ))}
                         </div>
                       )}
@@ -544,7 +658,12 @@ export default function App() {
                 <div className="flex flex-wrap gap-2 mb-3 px-2">
                   {attachments.map((att, i) => (
                     <div key={i} className="relative group">
-                      <img src={att.preview} alt="preview" className="w-16 h-16 object-cover rounded-xl border border-slate-200" />
+                      <img 
+                        src={att.preview} 
+                        alt="preview" 
+                        className="w-16 h-16 object-cover rounded-xl border border-slate-200 cursor-zoom-in hover:opacity-90 transition-opacity" 
+                        onClick={() => setPreviewImage(att.preview)}
+                      />
                       <button 
                         onClick={() => removeAttachment(i)}
                         className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-0.5 shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
@@ -734,6 +853,35 @@ export default function App() {
                 Interactive KG Engine
               </p>
             </footer>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Image Preview Modal */}
+      <AnimatePresence>
+        {previewImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center p-4 md:p-12"
+            onClick={() => setPreviewImage(null)}
+          >
+            <button 
+              className="absolute top-6 right-6 text-white/70 hover:text-white p-2 bg-white/10 rounded-full transition-colors"
+              onClick={() => setPreviewImage(null)}
+            >
+              <X className="w-8 h-8" />
+            </button>
+            <motion.img
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              src={previewImage}
+              alt="Full preview"
+              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
           </motion.div>
         )}
       </AnimatePresence>

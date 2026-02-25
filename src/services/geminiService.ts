@@ -28,7 +28,8 @@ export interface ChatResponse {
 export async function askQuestion(
   question: string, 
   history: { role: string; parts: { text: string }[] }[] = [],
-  currentGraph?: GraphData
+  currentGraph?: GraphData,
+  domain: string = "通用领域"
 ): Promise<ChatResponse> {
   const graphContext = currentGraph 
     ? `当前已有的知识图谱节点: ${currentGraph.nodes.map(n => `${n.label}(ID:${n.id})`).join(', ')}。
@@ -46,7 +47,9 @@ export async function askQuestion(
       { role: "user", parts: [{ text: question }] }
     ],
     config: {
-      systemInstruction: `你是一个知识图谱专家。你的任务是回答用户的问题，并从回答中提取出实体和它们之间的关系，以构建一个知识图谱。
+      systemInstruction: `你是一个${domain}领域的知识图谱专家。你的任务是回答用户的问题，并从回答中提取出实体和它们之间的关系，以构建一个知识图谱。
+      
+      当前领域：${domain}
       
       ${graphContext}
 
