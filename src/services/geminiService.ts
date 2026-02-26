@@ -29,7 +29,8 @@ export async function askQuestion(
   question: string, 
   history: { role: string; parts: { text: string }[] }[] = [],
   currentGraph?: GraphData,
-  domain: string = "通用领域"
+  domain: string = "通用领域",
+  model: string = "gemini-3-flash-preview"
 ): Promise<ChatResponse> {
   const graphContext = currentGraph 
     ? `当前已有的知识图谱节点: ${currentGraph.nodes.map(n => `${n.label}(ID:${n.id})`).join(', ')}。
@@ -41,7 +42,7 @@ export async function askQuestion(
     : "";
 
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: model,
     contents: [
       ...history,
       { role: "user", parts: [{ text: question }] }
