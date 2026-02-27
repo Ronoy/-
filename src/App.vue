@@ -667,25 +667,29 @@ const mergeGraphs = (base: GraphData | null, addition: GraphData): GraphData => 
   const idRedirectMap = new Map<string, string>();
 
   base.nodes.forEach(n => {
-    nodesMap.set(n.id, n);
-    labelToIdMap.set(n.label.toLowerCase().trim(), n.id);
+    const id = String(n.id);
+    nodesMap.set(id, { ...n, id });
+    labelToIdMap.set((n.label || '').toLowerCase().trim(), id);
   });
 
   addition.nodes.forEach(n => {
-    const normalizedLabel = n.label.toLowerCase().trim();
-    if (labelToIdMap.has(normalizedLabel)) {
+    const id = String(n.id);
+    const normalizedLabel = (n.label || '').toLowerCase().trim();
+    if (normalizedLabel && labelToIdMap.has(normalizedLabel)) {
       const existingId = labelToIdMap.get(normalizedLabel)!;
-      idRedirectMap.set(n.id, existingId);
+      idRedirectMap.set(id, existingId);
     } else {
-      nodesMap.set(n.id, n);
-      labelToIdMap.set(normalizedLabel, n.id);
+      nodesMap.set(id, { ...n, id });
+      if (normalizedLabel) {
+        labelToIdMap.set(normalizedLabel, id);
+      }
     }
   });
 
   const linksMap = new Map<string, KGLink>();
   const getLinkKey = (l: any) => {
-    const sourceId = typeof l.source === 'object' ? l.source.id : l.source;
-    const targetId = typeof l.target === 'object' ? l.target.id : l.target;
+    const sourceId = String(typeof l.source === 'object' ? l.source.id : l.source);
+    const targetId = String(typeof l.target === 'object' ? l.target.id : l.target);
     return `${sourceId}-${targetId}-${l.label}`;
   };
 
@@ -694,8 +698,8 @@ const mergeGraphs = (base: GraphData | null, addition: GraphData): GraphData => 
   addition.links.forEach(l => {
     if (!l.source || !l.target) return;
     
-    const sourceId = typeof l.source === 'object' ? (l.source as any).id : l.source;
-    const targetId = typeof l.target === 'object' ? (l.target as any).id : l.target;
+    const sourceId = String(typeof l.source === 'object' ? (l.source as any).id : l.source);
+    const targetId = String(typeof l.target === 'object' ? (l.target as any).id : l.target);
     
     const redirectedSource = idRedirectMap.get(sourceId) || sourceId;
     const redirectedTarget = idRedirectMap.get(targetId) || targetId;
@@ -808,14 +812,14 @@ const getNeighbors = (nodeId: string) => {
   if (!activeGraph.value) return [];
   const neighbors = new Set<string>();
   activeGraph.value.links.forEach(link => {
-    const sourceId = typeof link.source === 'object' ? (link.source as any).id : link.source;
-    const targetId = typeof link.target === 'object' ? (link.target as any).id : link.target;
+    const sourceId = String(typeof link.source === 'object' ? (link.source as any).id : link.source);
+    const targetId = String(typeof link.target === 'object' ? (link.target as any).id : link.target);
     
-    if (sourceId === nodeId) {
-      const targetNode = activeGraph.value!.nodes.find(n => n.id === targetId);
+    if (sourceId === String(nodeId)) {
+      const targetNode = activeGraph.value!.nodes.find(n => String(n.id) === targetId);
       if (targetNode) neighbors.add(targetNode.label);
-    } else if (targetId === nodeId) {
-      const sourceNode = activeGraph.value!.nodes.find(n => n.id === sourceId);
+    } else if (targetId === String(nodeId)) {
+      const sourceNode = activeGraph.value!.nodes.find(n => String(n.id) === sourceId);
       if (sourceNode) neighbors.add(sourceNode.label);
     }
   });

@@ -82,9 +82,29 @@ let zoomRef: d3.ZoomBehavior<SVGSVGElement, unknown> | null = null;
 let resizeObserver: ResizeObserver | null = null;
 
 const renderGraph = () => {
+  if (simulationRef) {
+    simulationRef.stop();
+  }
+
   if (!svgRef.value || !props.data || !props.data.nodes.length) return;
 
-  const data = props.data;
+  const uniqueNodesMap = new Map();
+  props.data.nodes.forEach(d => {
+    uniqueNodesMap.set(String(d.id), { ...d, id: String(d.id) });
+  });
+  const uniqueNodes = Array.from(uniqueNodesMap.values());
+  const nodeIds = new Set(uniqueNodesMap.keys());
+
+  const data = {
+    nodes: uniqueNodes,
+    links: props.data.links
+      .map(l => {
+        const sId = String(typeof l.source === 'object' ? (l.source as any).id : l.source);
+        const tId = String(typeof l.target === 'object' ? (l.target as any).id : l.target);
+        return { ...l, source: sId, target: tId };
+      })
+      .filter(l => nodeIds.has(l.source) && nodeIds.has(l.target))
+  };
   const svg = d3.select(svgRef.value);
   svg.selectAll('*').remove();
 
@@ -125,10 +145,12 @@ const renderGraph = () => {
 
   if (layout.value === 'force') {
     const simulation = d3.forceSimulation<Node & d3.SimulationNodeDatum>(data.nodes as any)
-      .force('link', d3.forceLink<Node & d3.SimulationNodeDatum, Link & d3.SimulationLinkDatum<any>>(data.links as any).id(d => d.id).distance(180))
-      .force('charge', d3.forceManyBody().strength(-800))
+      .force('link', d3.forceLink<Node & d3.SimulationNodeDatum, Link & d3.SimulationLinkDatum<any>>(data.links as any).id(d => d.id).distance(120))
+      .force('charge', d3.forceManyBody().strength(-400))
       .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collision', d3.forceCollide().radius(80));
+      .force('collision', d3.forceCollide().radius(40))
+      .force('x', d3.forceX(width / 2).strength(0.05))
+      .force('y', d3.forceY(height / 2).strength(0.05));
 
     simulationRef = simulation as any;
 
@@ -178,25 +200,25 @@ const renderGraph = () => {
       })
       .on('mouseover', function(event, d) {
         const connectedNodeIds = new Set<string>();
-        connectedNodeIds.add(d.id);
+        connectedNodeIds.add(String(d.id));
         
         data.links.forEach(l => {
-          const sId = typeof l.source === 'object' ? (l.source as any).id : l.source;
-          const tId = typeof l.target === 'object' ? (l.target as any).id : l.target;
-          if (sId === d.id) connectedNodeIds.add(tId);
-          if (tId === d.id) connectedNodeIds.add(sId);
+          const sId = String(typeof l.source === 'object' ? (l.source as any).id : l.source);
+          const tId = String(typeof l.target === 'object' ? (l.target as any).id : l.target);
+          if (sId === String(d.id)) connectedNodeIds.add(tId);
+          if (tId === String(d.id)) connectedNodeIds.add(sId);
         });
 
-        node.style('opacity', (n: any) => connectedNodeIds.has(n.id) ? 1 : 0.1);
+        node.style('opacity', (n: any) => connectedNodeIds.has(String(n.id)) ? 1 : 0.1);
         link.style('opacity', (l: any) => {
-          const sId = typeof l.source === 'object' ? (l.source as any).id : l.source;
-          const tId = typeof l.target === 'object' ? (l.target as any).id : l.target;
-          return (sId === d.id || tId === d.id) ? 1 : 0.1;
+          const sId = String(typeof l.source === 'object' ? (l.source as any).id : l.source);
+          const tId = String(typeof l.target === 'object' ? (l.target as any).id : l.target);
+          return (sId === String(d.id) || tId === String(d.id)) ? 1 : 0.1;
         });
         linkText.style('opacity', (l: any) => {
-          const sId = typeof l.source === 'object' ? (l.source as any).id : l.source;
-          const tId = typeof l.target === 'object' ? (l.target as any).id : l.target;
-          return (sId === d.id || tId === d.id) ? 1 : 0.1;
+          const sId = String(typeof l.source === 'object' ? (l.source as any).id : l.source);
+          const tId = String(typeof l.target === 'object' ? (l.target as any).id : l.target);
+          return (sId === String(d.id) || tId === String(d.id)) ? 1 : 0.1;
         });
         
         d3.select(this).select('circle')
@@ -269,10 +291,10 @@ const renderGraph = () => {
       event.subject.fy = null;
     }
   } else if (layout.value === 'tree') {
-    const nodeMap = new Map(data.nodes.map(n => [n.id, { ...n, children: [] as any[] }]));
+    const nodeMap = new Map(data.nodes.map(n => [String(n.id), { ...n, children: [] as any[] }]));
     
-    const targetIds = new Set(data.links.map(l => typeof l.target === 'object' ? (l.target as any).id : l.target));
-    const potentialRoots = data.nodes.filter(n => !targetIds.has(n.id));
+    const targetIds = new Set(data.links.map(l => String(typeof l.target === 'object' ? (l.target as any).id : l.target)));
+    const potentialRoots = data.nodes.filter(n => !targetIds.has(String(n.id)));
     
     const roots = potentialRoots.length > 0 ? potentialRoots : [data.nodes[0]];
     
@@ -287,19 +309,19 @@ const renderGraph = () => {
       parentNode.children.push(nodeData);
 
       data.links.forEach(link => {
-        const sId = typeof link.source === 'object' ? (link.source as any).id : link.source;
-        const tId = typeof link.target === 'object' ? (link.target as any).id : link.target;
+        const sId = String(typeof link.source === 'object' ? (link.source as any).id : link.source);
+        const tId = String(typeof link.target === 'object' ? (link.target as any).id : link.target);
         if (sId === currentId && !visited.has(tId)) {
           buildTree(tId, nodeData);
         }
       });
     };
 
-    roots.forEach(root => buildTree(root.id, virtualRoot));
+    roots.forEach(root => buildTree(String(root.id), virtualRoot));
     
     data.nodes.forEach(node => {
-      if (!visited.has(node.id)) {
-        buildTree(node.id, virtualRoot);
+      if (!visited.has(String(node.id))) {
+        buildTree(String(node.id), virtualRoot);
       }
     });
 
@@ -356,7 +378,7 @@ const renderGraph = () => {
       .style('stroke', '#fff')
       .style('stroke-width', '3px');
   } else if (layout.value === 'treemap') {
-    const nodeMap = new Map(data.nodes.map(n => [n.id, { ...n, children: [] as any[] }]));
+    const nodeMap = new Map(data.nodes.map(n => [String(n.id), { ...n, children: [] as any[] }]));
     const virtualRoot = { id: 'virtual-root', label: 'Root', children: [] as any[] };
     
     const categoryMap = new Map<string, any>();
